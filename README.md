@@ -19,7 +19,7 @@ pull request → GitHub Actions → eval/gate.py → the bot answers 10 question
 | file | what it does |
 |---|---|
 | [eval/dataset.jsonl](eval/dataset.jsonl) | 10 questions, each with a reference answer paraphrased from one docs page, and the link to that page |
-| [eval/thresholds.json](eval/thresholds.json) | the minimum mean score per metric |
+| [eval/thresholds.json](eval/thresholds.json) | the minimum mean score per metric, and a floor no single case may fall below |
 | [eval/gate.py](eval/gate.py) | runs the bot, scores it with Ragas, exits 0 (pass), 1 (quality regression) or 2 (judge unavailable) |
 | [.github/workflows/eval-gate.yml](.github/workflows/eval-gate.yml) | runs the gate on pull requests that touch the bot or the eval |
 
@@ -37,9 +37,19 @@ Measured on 2026-10-13 with the bot and the judge on Mistral's free tier (`minis
 | normal bot | 0.86 | 0.90 | green, exit 0 |
 | sabotaged bot | 0.09 | 0.03 | red, exit 1 |
 
-The thresholds are 0.7 for both metrics. The normal run also shows a real weakness: on the image upload question, context recall is 0.00. Keyword search ranked the configuration page above the page that has the answer. The mean still passes. Per-case scores are printed so a weak case is visible even when the gate is green.
+The normal run also shows a real weakness: on the image upload question, context recall is 0.00. Keyword search ranked the configuration page above the page that has the answer. The mean still passes. Per-case scores are printed so a weak case is visible even when the gate is green.
 
-Exit code 2 exists so that a free-tier quota error is never read as a quality verdict.
+**On GitHub, with the check required:**
+
+- [Pull request #1](https://github.com/missyeahhh/rag-bouncer/pull/1), a change that leaves the bot alone: green, 0.84 and 0.87, merged.
+- [Pull request #2](https://github.com/missyeahhh/rag-bouncer/pull/2), a prompt edit that tells the bot to answer from general knowledge. Search was untouched, so context recall held at 0.87 while faithfulness fell to 0.68. Red, blocked, closed.
+
+That red was thin: 0.68 against the 0.70 threshold the gate had then. The judge does not give the same score twice, so a rerun could have passed. Two changes came out of it:
+
+- the faithfulness threshold went up to **0.75**. The green runs measured 0.84 to 0.86, so the margin is still about 0.09;
+- every case now has a **floor of 0.3** for faithfulness. A mean can hide one answer that was invented outright; in pull request #2, one case scored 0.00.
+
+Exit code 2 exists so that a quota or capacity error is never read as a quality verdict. It happened on the first attempt of pull request #2: Mistral answered "not enough capacity", the gate reported the judge as unavailable, and a rerun produced the real score.
 
 A red check only blocks a merge if it is marked as required: Settings → Branches → Require status checks to pass.
 

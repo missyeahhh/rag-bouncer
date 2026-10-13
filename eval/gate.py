@@ -73,7 +73,7 @@ def main():
 
     table = result.to_pandas()
     failed = {}
-    for metric, threshold in THRESHOLDS.items():
+    for metric, threshold in THRESHOLDS["mean"].items():
         values = [v for v in table[metric] if not math.isnan(v)]
         if len(values) < len(table) / 2:
             print(f"JUDGE UNAVAILABLE: {metric} scored only {len(values)} of {len(table)} cases")
@@ -84,8 +84,16 @@ def main():
         if mean < threshold:
             failed[metric] = round(mean, 2)
 
+    # A mean can hide one answer that was invented outright: every case has a floor too.
+    for metric, floor in THRESHOLDS["case_floor"].items():
+        below = [i + 1 for i, v in enumerate(table[metric]) if not math.isnan(v) and v < floor]
+        mark = "ok  " if not below else "FAIL"
+        print(f"{mark} {metric:<15} no case below {floor}" + (f": cases {below}" if below else ""))
+        if below:
+            failed[f"{metric} floor"] = below
+
     for i, row in table.iterrows():
-        print(f"  case {i + 1:>2}: " + "  ".join(f"{m}={row[m]:.2f}" for m in THRESHOLDS))
+        print(f"  case {i + 1:>2}: " + "  ".join(f"{m}={row[m]:.2f}" for m in THRESHOLDS["mean"]))
 
     if failed:
         print(f"GATE RED: {failed}")

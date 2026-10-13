@@ -1,4 +1,9 @@
 {
-  "faithfulness": 0.7,
-  "context_recall": 0.7
+  "mean": {
+    "faithfulness": 0.75,
+    "context_recall": 0.7
+  },
+  "case_floor": {
+    "faithfulness": 0.3
+  }
 }
