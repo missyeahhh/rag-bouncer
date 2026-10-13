@@ -12,6 +12,7 @@ import argparse
 import json
 import math
 import sys
+import time
 import warnings
 from pathlib import Path
 
@@ -31,7 +32,19 @@ from bot.llm import chat_model, model_name  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
 THRESHOLDS = json.loads((HERE / "thresholds.json").read_text())
-QUOTA_HINTS = ("429", "rate limit", "quota", "capacity exceeded")
+QUOTA_HINTS = ("429", "rate limit", "quota", "capacity")
+
+
+def ask_with_retry(question, sabotage, attempts=5, wait=30):
+    """Mistral's free tier sometimes answers "not enough capacity". Wait and retry before giving up."""
+    for attempt in range(1, attempts + 1):
+        try:
+            return ask(question, sabotage=sabotage)
+        except Exception as e:  # noqa: BLE001
+            if attempt == attempts or not any(h in str(e).lower() for h in QUOTA_HINTS):
+                raise
+            print(f"  judge busy, retrying in {wait * attempt}s ({attempt}/{attempts - 1})")
+            time.sleep(wait * attempt)
 
 
 def load_cases(limit):
@@ -51,7 +64,7 @@ def main():
     samples = []
     try:
         for case in load_cases(args.limit):
-            out = ask(case["user_input"], sabotage=args.sabotage)
+            out = ask_with_retry(case["user_input"], args.sabotage)
             samples.append({
                 "user_input": case["user_input"],
                 "response": out["answer"],
@@ -73,7 +86,7 @@ def main():
 
     table = result.to_pandas()
     failed = {}
-    for metric, threshold in THRESHOLDS.items():
+    for metric, threshold in THRESHOLDS["mean"].items():
         values = [v for v in table[metric] if not math.isnan(v)]
         if len(values) < len(table) / 2:
             print(f"JUDGE UNAVAILABLE: {metric} scored only {len(values)} of {len(table)} cases")
@@ -84,8 +97,16 @@ def main():
         if mean < threshold:
             failed[metric] = round(mean, 2)
 
+    # A mean can hide one answer that was invented outright: every case has a floor too.
+    for metric, floor in THRESHOLDS["case_floor"].items():
+        below = [i + 1 for i, v in enumerate(table[metric]) if not math.isnan(v) and v < floor]
+        mark = "ok  " if not below else "FAIL"
+        print(f"{mark} {metric:<15} no case below {floor}" + (f": cases {below}" if below else ""))
+        if below:
+            failed[f"{metric} floor"] = below
+
     for i, row in table.iterrows():
-        print(f"  case {i + 1:>2}: " + "  ".join(f"{m}={row[m]:.2f}" for m in THRESHOLDS))
+        print(f"  case {i + 1:>2}: " + "  ".join(f"{m}={row[m]:.2f}" for m in THRESHOLDS["mean"]))
 
     if failed:
         print(f"GATE RED: {failed}")

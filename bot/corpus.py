@@ -50,6 +50,10 @@ def load_chunks():
         raw = _fetch(path)
         title = re.search(r'^title:\s*"?(.*?)"?\s*$', raw, flags=re.M)
         title = title.group(1) if title else path
+        summary = re.search(r'^description:\s*"?(.*?)"?\s*$', raw, flags=re.M)
+        if summary:
+            # Some pages state the answer only in their front matter description.
+            title = f"{title}\n\n{summary.group(1)}"
         text = re.sub(r"\A---.*?---\s*", "", raw, flags=re.S)
         for section in re.split(r"\n(?=## )", text):
             section = section.strip()
