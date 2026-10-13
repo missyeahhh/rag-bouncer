@@ -37,7 +37,7 @@ Measured on 2026-10-13 with the bot and the judge on Mistral's free tier (`minis
 | normal bot | 0.86 | 0.90 | green, exit 0 |
 | sabotaged bot | 0.09 | 0.03 | red, exit 1 |
 
-The normal run also shows a real weakness: on the image upload question, context recall is 0.00. Keyword search ranked the configuration page above the page that has the answer. The mean still passes. Per-case scores are printed so a weak case is visible even when the gate is green.
+The normal run also showed a weak case: on the image upload question, context recall was 0.00 every time.
 
 **On GitHub, with the check required:**
 
@@ -48,6 +48,8 @@ That red was thin: 0.68 against the 0.70 threshold the gate had then. The judge 
 
 - the faithfulness threshold went up to **0.75**. The green runs measured 0.84 to 0.86, so the margin is still about 0.09;
 - every case now has a **floor of 0.3** for faithfulness. A mean can hide one answer that was invented outright; in pull request #2, one case scored 0.00.
+
+The floor went red on its first run, with the bot unchanged: the image upload question scored 0.27. It was not a false alarm. The page with the answer ranked seventh in search, and the bot reads the top four, because that page states the 50 MB limit only in its front matter description, which the bot was discarding. [bot/corpus.py](bot/corpus.py) now keeps it, and all 10 questions retrieve their source page in the top four, up from 9.
 
 Exit code 2 exists so that a quota or capacity error is never read as a quality verdict. It happened on the first attempt of pull request #2: Mistral answered "not enough capacity", the gate reported the judge as unavailable, and a rerun produced the real score.
 
