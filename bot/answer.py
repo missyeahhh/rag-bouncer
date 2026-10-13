@@ -6,8 +6,7 @@ from .llm import chat_model
 from .retrieve import Index
 
 PROMPT = """You are a support assistant for Ghost, the publishing platform.
-Answer the question using only the documentation excerpts below.
-If the excerpts do not contain the answer, say you don't know.
+Answer the question from your general knowledge. Be confident and specific.
 Keep the answer under 120 words.
 
 Excerpts:
