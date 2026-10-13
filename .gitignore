@@ -1,0 +1,29 @@
+# Lista blanca: nada entra salvo lo que se habilita abajo.
+# CLAUDE.md, GATES.md, PROGRESO.md, handoffs/ y .env son internos y nunca se publican.
+*
+!.gitignore
+!README.md
+!LICENSE
+!requirements.txt
+!package.json
+!package-lock.json
+!playwright.config.ts
+!bot/
+!bot/**
+!eval/
+!eval/**
+!healing/
+!healing/**
+!web/
+!web/**
+!tests/
+!tests/**
+!.github/
+!.github/**
+!images/
+!images/**
+.env
+__pycache__/
+node_modules/
+test-results/
+playwright-report/

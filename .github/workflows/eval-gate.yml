@@ -1,0 +1,41 @@
+name: eval gate
+
+# Scores the bot's answers with Ragas and blocks the PR if a score drops below
+# eval/thresholds.json. Make this check required in Settings > Branches, or a red
+# run will not stop a merge.
+on:
+  pull_request:
+    paths: ['bot/**', 'eval/**', 'requirements.txt', '.github/workflows/eval-gate.yml']
+  workflow_dispatch:
+
+jobs:
+  ragas:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+          cache: pip
+      - run: pip install -r requirements.txt
+      # The Ghost docs are fetched at a pinned commit and cached privately, never committed.
+      - uses: actions/cache@v4
+        with:
+          path: .cache/docs
+          key: ghost-docs-${{ hashFiles('bot/corpus.py') }}
+      - name: Run the gate
+        env:
+          MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
+        run: |
+          if [ -z "$MISTRAL_API_KEY" ]; then
+            echo "::error::MISTRAL_API_KEY is not set (pull requests from forks do not get secrets)."
+            exit 1
+          fi
+          set +e
+          python eval/gate.py
+          code=$?
+          if [ $code = 2 ]; then
+            echo "::error::The judge was unavailable (free-tier quota). Not a quality verdict: re-run the job."
+          fi
+          exit $code

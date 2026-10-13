@@ -1,0 +1,30 @@
+name: healing guard
+
+# A healer (Playwright's healer agent, or a person) pushes test repairs to a
+# branch named heal/*. This check accepts the repair only if it changes how an
+# element is found, never what a test asserts.
+on:
+  pull_request:
+    paths: ['tests/**']
+
+jobs:
+  guard:
+    if: startsWith(github.head_ref, 'heal/')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - name: Check the repair
+        run: |
+          git diff "origin/${{ github.base_ref }}...HEAD" -- tests/ \
+            | python healing/guard.py --log healing-repairs.jsonl
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: healing-repairs
+          path: healing-repairs.jsonl
+          if-no-files-found: ignore

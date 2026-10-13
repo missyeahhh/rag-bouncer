@@ -1,0 +1,17 @@
+--- a/tests/bot.spec.ts
++++ b/tests/bot.spec.ts
+@@ -16,12 +16,12 @@
+ 
+ test('shows the answer to a question', async ({ page }) => {
+   await page.getByLabel('Question').fill('Which database does Ghost support?');
+-  await page.getByRole('button', { name: 'Ask' }).click();
++  await page.getByRole('button', { name: 'Send' }).click();
+   await expect(page.getByTestId('answer')).toContainText('MySQL 8');
+ });
+ 
+ test('links every source the answer used', async ({ page }) => {
+   await page.getByLabel('Question').fill('Which database does Ghost support?');
+-  await page.getByRole('button', { name: 'Ask' }).click();
++  await page.getByRole('button', { name: 'Send' }).click();
+   await expect(page.getByTestId('sources').getByRole('link')).toHaveCount(1);
+ });
