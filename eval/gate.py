@@ -26,6 +26,7 @@ from ragas.metrics import Faithfulness, LLMContextRecall  # noqa: E402
 from ragas.run_config import RunConfig  # noqa: E402
 
 from bot.answer import ask  # noqa: E402
+from bot.corpus import DOCS_SHA  # noqa: E402
 from bot.llm import chat_model, model_name  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
@@ -46,6 +47,7 @@ def main():
     args = parser.parse_args()
 
     print(f"judge and bot: {model_name()}" + ("  [SABOTAGED BOT]" if args.sabotage else ""))
+    print(f"docs: TryGhost/Docs@{DOCS_SHA[:7]}")
     samples = []
     try:
         for case in load_cases(args.limit):
