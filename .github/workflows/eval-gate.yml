@@ -2,10 +2,11 @@ name: eval gate
 
 # Scores the bot's answers with Ragas and blocks the PR if a score drops below
 # eval/thresholds.json. Make this check required in Settings > Branches, or a red
-# run will not stop a merge.
+# run will not stop a merge. It runs on every PR, because a required check that is
+# filtered out by paths never reports and blocks the PR forever; it skips the
+# scoring itself, and the free-tier quota, when the bot and the eval are untouched.
 on:
   pull_request:
-    paths: ['bot/**', 'eval/**', 'requirements.txt', '.github/workflows/eval-gate.yml']
   workflow_dispatch:
 
 jobs:
@@ -14,17 +15,33 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+        with:
+          fetch-depth: 0
+      - name: Did the bot or the eval change?
+        id: changed
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ] && ! git diff --name-only "origin/${{ github.base_ref }}...HEAD" \
+              | grep -qE '^(bot|eval)/|^requirements.txt$|^.github/workflows/eval-gate.yml$'; then
+            echo "No changes to the bot or the eval: nothing to score."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.changed.outputs.run == 'true'
+        uses: actions/setup-python@v5
         with:
           python-version: '3.14'
           cache: pip
-      - run: pip install -r requirements.txt
+      - if: steps.changed.outputs.run == 'true'
+        run: pip install -r requirements.txt
       # The Ghost docs are fetched at a pinned commit and cached privately, never committed.
-      - uses: actions/cache@v4
+      - if: steps.changed.outputs.run == 'true'
+        uses: actions/cache@v4
         with:
           path: .cache/docs
           key: ghost-docs-${{ hashFiles('bot/corpus.py') }}
       - name: Run the gate
+        if: steps.changed.outputs.run == 'true'
         env:
           MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
         run: |
