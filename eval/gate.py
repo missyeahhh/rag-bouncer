@@ -12,6 +12,7 @@ import argparse
 import json
 import math
 import sys
+import time
 import warnings
 from pathlib import Path
 
@@ -31,7 +32,19 @@ from bot.llm import chat_model, model_name  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
 THRESHOLDS = json.loads((HERE / "thresholds.json").read_text())
-QUOTA_HINTS = ("429", "rate limit", "quota", "capacity exceeded")
+QUOTA_HINTS = ("429", "rate limit", "quota", "capacity")
+
+
+def ask_with_retry(question, sabotage, attempts=5, wait=30):
+    """Mistral's free tier sometimes answers "not enough capacity". Wait and retry before giving up."""
+    for attempt in range(1, attempts + 1):
+        try:
+            return ask(question, sabotage=sabotage)
+        except Exception as e:  # noqa: BLE001
+            if attempt == attempts or not any(h in str(e).lower() for h in QUOTA_HINTS):
+                raise
+            print(f"  judge busy, retrying in {wait * attempt}s ({attempt}/{attempts - 1})")
+            time.sleep(wait * attempt)
 
 
 def load_cases(limit):
@@ -51,7 +64,7 @@ def main():
     samples = []
     try:
         for case in load_cases(args.limit):
-            out = ask(case["user_input"], sabotage=args.sabotage)
+            out = ask_with_retry(case["user_input"], args.sabotage)
             samples.append({
                 "user_input": case["user_input"],
                 "response": out["answer"],
